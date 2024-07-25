@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single File Upload</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .dropzone {
+      border: 2px dashed #007bff;
+      border-radius: 5px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 15px; /* Space between dropzone and file name */
+    }
+    .dropzone.dragover {
+      background-color: #e9ecef;
+    }
+    .file-name {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #007bff; /* Color for file name text */
+    }
+    .progress-container {
+      margin-top: 10px;
+    }
+    .progress {
+      height: 30px;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+    .progress-bar-idle {
+      background-color: #b3d9ff; /* Light blue color for idle state */
+    }
+    .progress-bar-progress {
+      background-color: #0056b3; /* Dark blue color for progress state */
+    }
+    .progress-bar-success {
+      background-color: #28a745; /* Green color for completed state */
+    }
+    .progress-bar-text {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner-border {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-width: 3px;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h1>Single File Upload</h1>
+    <div id="uploadContainer">
+      <div class="dropzone" id="dropzone">
+        <p>Drag & drop a file here or click to select</p>
+        <input type="file" name="file" id="fileInput" style="display: none;" />
+      </div>
+      <div class="file-name" id="fileName">No file chosen</div>
+      <div id="progressContainer" class="progress-container" style="display: none;">
+        <div class="progress">
+          <div id="progressBar" class="progress-bar progress-bar-idle" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar-text">
+              <div class="spinner-border" role="status"></div>
+              Processing
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <div id="alert-container"></div>
+  </div>
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileName');
+    const alertContainer = document.getElementById('alert-container');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      fileNameDisplay.textContent = file ? `Selected file: ${file.name}` : 'No file chosen';
+      uploadFile();
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      fileInput.files = e.dataTransfer.files;
+      const file = fileInput.files[0];
+      fileNameDisplay.textContent = file ? `Selected file: ${file.name}` : 'No file chosen';
+      uploadFile();
+    });
+
+    function uploadFile() {
+      const file = fileInput.files[0];
+      if (!file) return; // No file selected, exit function
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload/single', true);
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentCompleted = Math.round((e.loaded * 100) / e.total);
+          progressBar.style.width = percentCompleted + '%';
+          progressBar.setAttribute('aria-valuenow', percentCompleted);
+          progressBar.classList.remove('progress-bar-idle', 'progress-bar-success');
+          progressBar.classList.add('progress-bar-progress');
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        progressBar.classList.remove('progress-bar-progress');
+        progressBar.classList.add('progress-bar-success');
+        progressBar.style.width = '100%';
+        progressContainer.style.display = 'none';
+        const result = JSON.parse(xhr.responseText);
+        alertContainer.innerHTML = '';
+
+        if (result.success) {
+          alertContainer.innerHTML = `
+            <div class="alert alert-success" role="alert">
+              Filename: ${result.file.original_filename}.${result.file.format} <br>
+              <strong>URL:</strong> <a href="${result.file.secure_url}" target="_blank">${result.file.secure_url}</a>
+            </div>`;
+        } else {
+          alertContainer.innerHTML = `<div class="alert alert-danger" role="alert">${result.message}</div>`;
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        alertContainer.innerHTML = `<div class="alert alert-danger" role="alert">
+          An error occurred during the upload.
+        </div>`;
+        progressBar.classList.remove('progress-bar-progress', 'progress-bar-success');
+        progressBar.classList.add('progress-bar-idle');
+        progressBar.style.width = '0%';
+        progressContainer.style.display = 'none';
+      });
+
+      progressContainer.style.display = 'block'; // Show progress bar
+      progressBar.classList.add('progress-bar-idle'); // Initial idle state
+      xhr.send(formData);
+    }
+  </script>
+</body>
+</html>
+

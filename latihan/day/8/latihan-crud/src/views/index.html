@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product and Category List</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <style>
+    .notification {
+      display: none;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="my-4">Product and Category List</h1>
+    <div id="notification" class="notification alert"></div>
+    
+    <h2>Categories</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="categoryList"></tbody>
+    </table>
+    <a href="/category.html" class="btn btn-primary mb-4">Add Category</a>
+    
+    <h2>Products</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Price</th>
+          <th>Category</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="productList"></tbody>
+    </table>
+    <a href="/product.html" class="btn btn-primary">Add Product</a>
+  </div>
+
+  <script>
+    async function fetchCategories() {
+      try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        const categoryList = document.getElementById('categoryList');
+        categoryList.innerHTML = categories.data.map(category =>
+          `<tr>
+            <td>${category.name}</td>
+            <td>
+              <a href="/category.html?id=${category._id}" class="btn btn-sm btn-warning">Edit</a>
+              <button onclick="deleteCategory('${category._id}')" class="btn btn-sm btn-danger">Delete</button>
+            </td>
+          </tr>`
+        ).join('');
+      } catch (error) {
+        showNotification('Failed to fetch categories.', 'danger');
+      }
+    }
+
+    async function fetchProducts() {
+  try {
+    const response = await fetch('/api/products');
+    const products = await response.json();
+    const productList = document.getElementById('productList');
+    productList.innerHTML = products.data.map(product =>
+      `<tr>
+        <td>${product.name}</td>
+        <td>${product.price}</td>
+        <td>${product.category ? product.category.name : 'Uncategorized'}</td>
+        <td>
+          <a href="/product.html?id=${product._id}" class="btn btn-sm btn-warning">Edit</a>
+          <button onclick="deleteProduct('${product._id}')" class="btn btn-sm btn-danger">Delete</button>
+        </td>
+      </tr>`
+    ).join('');
+  } catch (error) {
+    showNotification('Failed to fetch products.', 'danger');
+  }
+}
+
+    async function deleteCategory(id) {
+      try {
+        await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+        showNotification('Category deleted successfully.', 'success');
+        fetchCategories();
+      } catch (error) {
+        showNotification('Failed to delete category.', 'danger');
+      }
+    }
+
+    async function deleteProduct(id) {
+      try {
+        await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        showNotification('Product deleted successfully.', 'success');
+        fetchProducts();
+      } catch (error) {
+        showNotification('Failed to delete product.', 'danger');
+      }
+    }
+
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.className = `notification alert alert-${type}`;
+      notification.innerText = message;
+      notification.style.display = 'block';
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, 5000);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchCategories();
+      fetchProducts();
+    });
+  </script>
+</body>
+</html>

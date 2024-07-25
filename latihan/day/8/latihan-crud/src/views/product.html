@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create/Edit Product</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <style>
+    .notification {
+      display: none;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="my-4">Create/Edit Product</h1>
+    <form id="productForm">
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label for="price">Price</label>
+        <input type="number" id="price" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label for="category">Category</label>
+        <select id="category" class="form-control" required></select>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Product</button>
+    </form>
+    <div id="notification" class="notification alert"></div>
+  </div>
+
+  <script>
+    async function fetchCategories() {
+      try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        const categorySelect = document.getElementById('category');
+        categorySelect.innerHTML = categories.data.map(category =>
+          `<option value="${category._id}">${category.name}</option>`
+        ).join('');
+      } catch (error) {
+        showNotification('Failed to fetch categories.', 'danger');
+      }
+    }
+
+    async function fetchProduct(id) {
+  try {
+    const response = await fetch(`/api/products/${id}`);
+    const product = await response.json();
+    document.getElementById('name').value = product.data.name;
+    document.getElementById('price').value = product.data.price;
+    document.getElementById('category').value = product.data.category ? product.data.category._id : '';
+  } catch (error) {
+    showNotification('Failed to fetch product.', 'danger');
+  }
+}
+
+
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.className = `notification alert alert-${type}`;
+      notification.innerText = message;
+      notification.style.display = 'block';
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, 5000);
+    }
+
+    document.getElementById('productForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const id = new URLSearchParams(window.location.search).get('id');
+      const name = document.getElementById('name').value;
+      const price = document.getElementById('price').value;
+      const category = document.getElementById('category').value;
+
+      try {
+        if (id) {
+          await fetch(`/api/products/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, price, category })
+          });
+          showNotification('Product updated successfully.', 'success');
+        } else {
+          await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, price, category })
+          });
+          showNotification('Product created successfully.', 'success');
+        }
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } catch (error) {
+        showNotification('Failed to save product.', 'danger');
+      }
+    });
+
+    const id = new URLSearchParams(window.location.search).get('id');
+    fetchCategories();
+    if (id) fetchProduct(id);
+  </script>
+</body>
+</html>

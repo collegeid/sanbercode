@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiple File Upload</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .dropzone {
+      border: 2px dashed #007bff;
+      border-radius: 5px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .dropzone.dragover {
+      background-color: #e9ecef;
+    }
+    .progress-container {
+      margin-top: 20px;
+    }
+    .progress {
+      margin-bottom: 10px;
+      height: 30px;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      transition: width 0.4s ease;
+      position: relative;
+    }
+    .progress-bar-idle {
+      background-color: #b3d9ff; /* Light blue color for idle state */
+    }
+    .progress-bar-progress {
+      background-color: #0056b3; /* Dark blue color for progress state */
+    }
+    .progress-bar-success {
+      background-color: #28a745; /* Green color for completed state */
+    }
+    .progress-bar-text {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner-border {
+      width: 1rem;
+      height: 1rem;
+      border-width: 3px;
+      margin-right: 0.5rem;
+      border-color: #fff transparent #fff transparent;
+    }
+    .file-name {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h1>Multiple File Upload</h1>
+    <div id="uploadContainer">
+      <div class="dropzone" id="dropzone">
+        <p>Drag & drop files here or click to select</p>
+        <input type="file" name="files" id="fileInput" multiple style="display: none;" />
+      </div>
+      <div id="progressContainer" class="progress-container"></div>
+    </div>
+    <hr>
+    <div id="alert-container"></div>
+  </div>
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const alertContainer = document.getElementById('alert-container');
+    const progressContainer = document.getElementById('progressContainer');
+    
+    dropzone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', () => {
+      uploadFiles();
+    });
+    
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+    
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      fileInput.files = e.dataTransfer.files;
+      uploadFiles();
+    });
+    
+    function createProgressBar(fileName) {
+      const progressDiv = document.createElement('div');
+      progressDiv.innerHTML = `
+        <div class="file-name">${fileName}</div>
+        <div class="progress">
+          <div class="progress-bar progress-bar-idle" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar-text">
+              <div class="spinner-border" role="status"></div>
+              Processing
+            </div>
+          </div>
+        </div>
+        <hr>`;
+      progressContainer.appendChild(progressDiv);
+      return progressDiv.querySelector('.progress-bar');
+    }
+    
+    function updateProgressBar(progressBar, percentCompleted, state) {
+      progressBar.style.width = percentCompleted + '%';
+      progressBar.setAttribute('aria-valuenow', percentCompleted);
+      const textElement = progressBar.querySelector('.progress-bar-text');
+      if (state === 'progress') {
+        progressBar.classList.remove('progress-bar-idle', 'progress-bar-success');
+        progressBar.classList.add('progress-bar-progress');
+        textElement.style.display = 'flex';
+      } else if (state === 'success') {
+        progressBar.classList.remove('progress-bar-idle', 'progress-bar-progress');
+        progressBar.classList.add('progress-bar-success');
+        textElement.style.display = 'none'; // Hide text on success
+      }
+    }
+    
+    async function uploadFiles() {
+      const files = fileInput.files;
+      const progressBars = [];
+      const formData = new FormData();
+      
+      for (let file of files) {
+        formData.append('files', file);
+        const progressBar = createProgressBar(file.name);
+        progressBars.push({ fileName: file.name, progressBar });
+      }
+      
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload/multiple', true);
+      
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentCompleted = Math.round((e.loaded * 100) / e.total);
+          progressBars.forEach(pb => updateProgressBar(pb.progressBar, percentCompleted, 'progress'));
+        }
+      });
+      
+      xhr.addEventListener('load', () => {
+        const result = JSON.parse(xhr.responseText);
+        alertContainer.innerHTML = '';
+
+        if (result.success) {
+          result.files.forEach(file => {
+            alertContainer.innerHTML += `
+              <div class="alert alert-success" role="alert">
+                <strong>Filename:</strong> ${file.original_filename}.${file.format} <br>
+                <strong>URL:</strong> <a href="${file.secure_url}" target="_blank">${file.secure_url}</a>
+              </div>`;
+            // Update progress bar to success
+            const pb = progressBars.find(pb => pb.fileName === `${file.original_filename}.${file.format}`);
+            if (pb) updateProgressBar(pb.progressBar, 100, 'success');
+          });
+          // Hide progress bars after successful upload
+          setTimeout(() => {
+            progressContainer.innerHTML = ''; // Clear progress bars after a short delay
+          }, 2000);
+        } else {
+          alertContainer.innerHTML = `<div class="alert alert-danger" role="alert">${result.message}</div>`;
+          // Clear progress bars on error
+          progressContainer.innerHTML = '';
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        alertContainer.innerHTML = `<div class="alert alert-danger" role="alert">An error occurred during the upload.</div>`;
+        progressContainer.innerHTML = ''; // Clear progress bars on error
+      });
+      
+      xhr.send(formData);
+    }
+  </script>
+</body>
+</html>
+
