@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, 'views')));
 
 // Routes
 
-app.use('/', router);
+//app.use('/', router);
 app.use('/api', router);
 
 app.listen(port, () => {
