@@ -3,10 +3,10 @@ import * as Yup from "yup";
 
 import jwt from "jsonwebtoken";
 
-import UserModel from "@/models/user.model";
-import { decrypt } from "@/utils/encryption";
-import { SECRET } from "@/utils/env";
-import { IReqUser } from "@/utils/interfaces";
+import UserModel from "../models/user.model";
+import { decrypt } from "../utils/encryption";
+import { SECRET } from "../config/env";
+import { IReqUser } from "../utils/interfaces";
 
 const validateRegisterSchema = Yup.object().shape({
     fullName: Yup.string().required(),
@@ -66,9 +66,11 @@ export default {
       }
     },
     async me(req: Request, res: Response) {
+      
       const userId = (req as IReqUser).user.id;
       try {
         const user = await UserModel.findById(userId);
+        
         res.status(200).json({
           message: "User details",
           data: user,
